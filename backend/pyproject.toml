@@ -1,0 +1,19 @@
+[project]
+name = "saas-analytics-backend"
+version = "1.0.0"
+description = "Multi-tenant analytics API (FastAPI)."
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    "ignore:'crypt' is deprecated.*:DeprecationWarning",
+]

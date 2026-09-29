@@ -15,7 +15,9 @@ from app.core.database import Base, engine
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Convenient for a demo; production uses Alembic migrations instead.
+    # Creates tables on startup. There are no migrations in this repository; a
+    # production deployment would need Alembic (or equivalent) before any schema
+    # change could be shipped.
     Base.metadata.create_all(bind=engine)
     yield
 

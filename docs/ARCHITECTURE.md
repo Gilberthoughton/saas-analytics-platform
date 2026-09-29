@@ -197,16 +197,19 @@ saas-analytics-platform/
 
 | Phase | Scope | Status |
 | ----- | ----- | ------ |
-| 0 | Repo scaffold, docs, infra (compose, CI, health files) | in progress |
-| 1 | Backend core (config, DB, cache, security, RBAC deps) | in progress |
-| 2 | Auth + multi-tenant orgs + memberships (RBAC) | in progress |
-| 3 | API keys + event ingestion + webhooks | planned |
-| 4 | Analytics (cached metrics + time series) + event explorer | planned |
-| 5 | Audit logs | planned |
-| 6 | Backend test suite (pytest) green | planned |
-| 7 | Frontend: auth, dashboard, explorer, API-keys, settings | planned |
-| 8 | Frontend tests + production build | planned |
-| 9 | CI/CD (Postgres + Redis service containers), final docs | planned |
+| 0 | Repo scaffold, docs, infra (compose, CI, health files) | done |
+| 1 | Backend core (config, DB, cache, security, RBAC deps) | done |
+| 2 | Auth + multi-tenant orgs + memberships (RBAC) | done |
+| 3 | API keys + event ingestion + webhooks | done |
+| 4 | Analytics (cached metrics + time series) + event explorer | done |
+| 5 | Audit logs | done |
+| 6 | Backend test suite (pytest) green | done |
+| 7 | Frontend: auth, dashboard, explorer, API-keys, settings | done |
+| 8 | Frontend tests + production build | done |
+| 9 | CI/CD (Postgres + Redis service containers), final docs | done |
+| — | Database migrations (Alembic) — schema is created by `create_all` today | not started |
+| — | Application logging — the backend emits none | not started |
+| — | Durable webhook delivery (queue + retries); delivery is synchronous today | not started |
 
 > **Local testing note:** the backend runs on PostgreSQL + Redis via Docker
 > Compose for real use. The automated test suite runs against SQLite and an

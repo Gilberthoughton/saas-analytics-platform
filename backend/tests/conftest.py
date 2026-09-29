@@ -12,6 +12,10 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ.setdefault("CACHE_BACKEND", "memory")
 os.environ.setdefault("ENVIRONMENT", "test")
+# Webhook delivery tests point at a closed loopback port so they stay hermetic.
+# SSRF protection itself is exercised with this relaxation explicitly disabled —
+# see test_webhook_ssrf.py.
+os.environ.setdefault("WEBHOOK_ALLOW_PRIVATE_DESTINATIONS", "true")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

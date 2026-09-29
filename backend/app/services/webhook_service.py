@@ -13,10 +13,13 @@ import hmac
 import json
 import secrets
 from typing import Protocol
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.core.ssrf import UnsafeWebhookDestination, resolve_and_validate
 from app.models.webhook import Webhook, WebhookDelivery
 from app.repositories.webhook_repository import WebhookRepository
 from app.services.audit_service import AuditService
@@ -31,7 +34,13 @@ def sign_payload(secret: str, body: bytes) -> str:
 
 
 class HttpWebhookSender:
-    """Default sender: POSTs JSON with an HMAC-SHA256 signature header."""
+    """Default sender: POSTs JSON with an HMAC-SHA256 signature header.
+
+    The destination is re-validated immediately before the request (see
+    `app.core.ssrf`) rather than trusting the check made at creation time: a
+    hostname that was public then may resolve elsewhere now, and rows created
+    before destination validation existed are still in the table.
+    """
 
     def __init__(self, timeout: float = 3.0) -> None:
         self.timeout = timeout
@@ -39,21 +48,61 @@ class HttpWebhookSender:
     def send(self, url: str, payload: dict, secret: str) -> tuple[int, bool]:
         import httpx
 
+        try:
+            validated_ips = resolve_and_validate(
+                url, allow_private=settings.WEBHOOK_ALLOW_PRIVATE_DESTINATIONS
+            )
+        except UnsafeWebhookDestination:
+            # Recorded as a failed attempt; the tenant learns nothing about what
+            # the server could or could not reach.
+            return 0, False
+
         body = json.dumps(payload).encode()
         signature = sign_payload(secret, body)
+        target, headers = _pin_to_validated_address(url, validated_ips)
+        headers |= {
+            "Content-Type": "application/json",
+            "X-Signature-256": f"sha256={signature}",
+        }
         try:
             resp = httpx.post(
-                url,
+                target,
                 content=body,
-                headers={
-                    "Content-Type": "application/json",
-                    "X-Signature-256": f"sha256={signature}",
-                },
+                headers=headers,
                 timeout=self.timeout,
+                # A redirect is resolved by the *destination*, so following one
+                # would hand the tenant an unvalidated second hop.
+                follow_redirects=False,
+                extensions={"sni_hostname": urlsplit(url).hostname or ""},
             )
             return resp.status_code, 200 <= resp.status_code < 300
         except Exception:
             return 0, False
+
+
+def _pin_to_validated_address(url: str, validated_ips: list[str]) -> tuple[str, dict]:
+    """Rewrite the URL to connect to an address that was actually validated.
+
+    Re-resolving at connection time would let a hostile DNS server return a
+    private address on the second lookup (DNS rebinding). Connecting to the
+    validated address with the original Host header preserves virtual hosting;
+    the caller passes the original hostname as the TLS SNI name so certificate
+    verification is still performed against the hostname.
+
+    When no addresses were validated (local-development mode) the URL is used
+    unchanged.
+    """
+    parsed = urlsplit(url)
+    host = parsed.hostname
+    if not validated_ips or not host:
+        return url, {}
+
+    chosen = validated_ips[0]
+    literal = f"[{chosen}]" if ":" in chosen else chosen
+    netloc = f"{literal}:{parsed.port}" if parsed.port else literal
+    pinned = parsed._replace(netloc=netloc).geturl()
+    host_header = f"{host}:{parsed.port}" if parsed.port else host
+    return pinned, {"Host": host_header}
 
 
 class WebhookService:
@@ -66,6 +115,12 @@ class WebhookService:
     def create(
         self, *, org_id: UUID, url: str, event_types: list[str], actor_user_id: UUID
     ) -> tuple[Webhook, str]:
+        # Reject unreachable-by-policy destinations at creation so the tenant gets
+        # an immediate, actionable error instead of silently failing deliveries.
+        # Delivery re-validates regardless (see HttpWebhookSender.send).
+        resolve_and_validate(
+            url, allow_private=settings.WEBHOOK_ALLOW_PRIVATE_DESTINATIONS
+        )
         secret = secrets.token_hex(16)
         webhook = self.repo.add(
             Webhook(

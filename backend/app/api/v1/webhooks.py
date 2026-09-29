@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.deps import AuthContext, CurrentContext, DbSession, require_role
 from app.core.rbac import Role
+from app.core.ssrf import UnsafeWebhookDestination
 from app.schemas.webhook import (
     WebhookCreate,
     WebhookCreated,
@@ -35,12 +36,18 @@ def create_webhook(
     db: DbSession,
     context: AuthContext = RequireAdmin,
 ) -> WebhookCreated:
-    webhook, secret = WebhookService(db).create(
-        org_id=context.organization_id,
-        url=str(payload.url),
-        event_types=payload.event_types,
-        actor_user_id=context.user.id,
-    )
+    try:
+        webhook, secret = WebhookService(db).create(
+            org_id=context.organization_id,
+            url=str(payload.url),
+            event_types=payload.event_types,
+            actor_user_id=context.user.id,
+        )
+    except UnsafeWebhookDestination as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsafe webhook destination: {exc}",
+        ) from exc
     return WebhookCreated(
         id=webhook.id,
         url=webhook.url,

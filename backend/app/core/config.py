@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     CACHE_BACKEND: str = "redis"  # "redis" | "memory"
     ANALYTICS_CACHE_TTL_SECONDS: int = 30
 
+    # Webhooks
+    # Tenant-supplied webhook URLs are an SSRF surface, so delivery is restricted
+    # to globally-routable addresses. This escape hatch exists so local development
+    # and hermetic tests can target localhost; it must stay false in production.
+    WEBHOOK_ALLOW_PRIVATE_DESTINATIONS: bool = False
+
     # CORS (comma-separated string; parsed via `cors_origins`)
     BACKEND_CORS_ORIGINS: str = "http://localhost:3000"
 

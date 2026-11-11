@@ -3,10 +3,10 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: analytics
-      POSTGRES_PASSWORD: analytics
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
       POSTGRES_DB: analytics
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -28,13 +28,13 @@ services:
   backend:
     build: ./backend
     environment:
-      SECRET_KEY: "change-me-in-production"
-      DATABASE_URL: "postgresql+psycopg2://analytics:analytics@postgres:5432/analytics"
+      SECRET_KEY: "${SECRET_KEY:?Set SECRET_KEY in .env}"
+      DATABASE_URL: "postgresql+psycopg2://analytics:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/analytics"
       REDIS_URL: "redis://redis:6379/0"
       CACHE_BACKEND: "redis"
       BACKEND_CORS_ORIGINS: "http://localhost:3000"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,7 +47,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8000/api/v1"
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
     restart: unless-stopped

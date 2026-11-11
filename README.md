@@ -107,7 +107,11 @@ on SQLite (used by the test suite). See the ER diagram in
 git clone https://github.com/Gilberthoughton/saas-analytics-platform.git
 cd saas-analytics-platform
 
-# Set a real SECRET_KEY (compose has a placeholder for local use)
+# Create a local .env file (never commit it) with unique credentials:
+# POSTGRES_PASSWORD=<generate-a-strong-password>
+# SECRET_KEY=<generate-with-openssl-rand-hex-32>
+# If the password has URL-reserved characters, URL-encode it for DATABASE_URL.
+# Docker Compose now refuses to start without both variables.
 docker compose up --build
 ```
 
